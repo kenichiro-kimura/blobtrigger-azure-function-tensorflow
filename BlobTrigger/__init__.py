@@ -81,7 +81,7 @@ def main(myblob: func.InputStream):
     logging.info('Classified as: ' + labels[highest_probability_index] + '(' + str(predictions[0][highest_probability_index]) + ')')
 
     if(labels[highest_probability_index] == "open"):
-        send_linenotify(str(predictions[0][highest_probability_index]),blob_url])
+        send_linenotify(str(predictions[0][highest_probability_index]),blob_url)
     # Or you can print out all of the results mapping labels to probabilities.
     label_index = 0
     for p in predictions:
