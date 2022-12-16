@@ -22,7 +22,7 @@ def main(myblob: func.InputStream):
                  f"Name: {myblob.name}\n"
                  f"Blob Size: {myblob.length} bytes")
 
-    blob_service_client = BlobServiceClient.from_connection_string(os.environ.get('StrageConnectionString'))
+    blob_service_client = BlobServiceClient.from_connection_string(os.environ.get('CUSTOMCONNSTR_StrageConnectionString'))
     blob_names = myblob.name.split('/')
     container_name = blob_names.pop(0)
     blob_name = "/".join(blob_names)
