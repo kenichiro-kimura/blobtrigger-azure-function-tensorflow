@@ -1,6 +1,6 @@
 azure-functions
 azure-storage-blob
-#tensorflow
+tensorflow
 tflite_runtime
 pillow
 numpy
