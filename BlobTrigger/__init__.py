@@ -10,7 +10,11 @@ import importlib
 from datetime import datetime, timedelta
 from azure.storage.blob import generate_blob_sas,BlobSasPermissions,BlobServiceClient,BlobClient
 import os
+import requests
 
+URL = "https://notify-api.line.me/api/notify";
+
+# cv2を使うためにfunctionsのコンテナにないライブラリを無理矢理読み込む
 exlibpath = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/tmp/'
 ctypes.CDLL(exlibpath + 'libglib-2.0.so.0')
 ctypes.CDLL(exlibpath + 'libgthread-2.0.so.0')
@@ -76,6 +80,8 @@ def main(myblob: func.InputStream):
     highest_probability_index = np.argmax(predictions)
     logging.info('Classified as: ' + labels[highest_probability_index] + '(' + str(predictions[0][highest_probability_index]) + ')')
 
+    if(labels[highest_probability_index] == "open"):
+        send_linenotify(str(predictions[0][highest_probability_index]),blob_url])
     # Or you can print out all of the results mapping labels to probabilities.
     label_index = 0
     for p in predictions:
@@ -100,3 +106,11 @@ def get_blob_sas(blob_client,container_name, blob_name):
                                 permission=BlobSasPermissions(read=True),
                                 expiry=datetime.utcnow() + timedelta(hours=1))
     return sas_blob
+
+def send_linenotify(probability,image_url):
+    line_token = os.environ.get('LineToken')
+    headers = {"Content-Type": "application/x-www-form-urlencoded","Authorization": "Bearer %s" % line_token};
+
+    message = "玄関の鍵が開いてるかもしれません！\n(確率 %s)\n%s\n" % probability,image_url
+    data = {"message": message.encode("utf-8")}
+    requests.post(URL, headers=headers, data=data);
