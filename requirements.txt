@@ -1,0 +1,7 @@
+azure-functions
+azure-storage-blob
+#tensorflow
+tflite_runtime
+pillow
+numpy
+opencv-python

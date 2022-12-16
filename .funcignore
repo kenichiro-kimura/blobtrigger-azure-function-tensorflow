@@ -1,0 +1,5 @@
+.vscode
+.gitignore
+.venv
+local.settings.json
+model.pb
