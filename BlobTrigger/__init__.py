@@ -111,6 +111,9 @@ def send_linenotify(probability,image_url):
     line_token = os.environ.get('LineToken')
     headers = {"Content-Type": "application/x-www-form-urlencoded","Authorization": "Bearer %s" % line_token};
 
-    message = "玄関の鍵が開いてるかもしれません！\n(確率 %s)\n%s\n" % (probability,image_url)
-    data = {"message": message.encode("utf-8")}
+    message = "玄関の鍵が開いてるかもしれません！\n(確率 %s)\n" % probability
+    data = {
+        "message": message.encode("utf-8"),
+        "imageFullsize": image_url
+        }
     requests.post(URL, headers=headers, data=data);
