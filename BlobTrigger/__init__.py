@@ -4,7 +4,6 @@ import io
 import tensorflow as tf
 from PIL import Image
 import numpy as np
-#import cv2
 import ctypes
 import importlib
 from datetime import datetime, timedelta
@@ -14,19 +13,12 @@ import requests
 
 URL = "https://notify-api.line.me/api/notify";
 
-# cv2を使うためにfunctionsのコンテナにないライブラリを無理矢理読み込む
-exlibpath = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/tmp/'
-ctypes.CDLL(exlibpath + 'libglib-2.0.so.0')
-ctypes.CDLL(exlibpath + 'libgthread-2.0.so.0')
-
-cv2 = importlib.import_module('cv2')
-
 def main(myblob: func.InputStream):
     logging.info(f"Python blob trigger function processed blob \n"
                  f"Name: {myblob.name}\n"
                  f"Blob Size: {myblob.length} bytes")
 
-    blob_service_client = BlobServiceClient.from_connection_string(os.environ.get('CUSTOMCONNSTR_StrageConnectionString'))
+    blob_service_client = BlobServiceClient.from_connection_string(os.environ.get('ConnectionStrings:StrageConnectionString'))
     blob_names = myblob.name.split('/')
     container_name = blob_names.pop(0)
     blob_name = "/".join(blob_names)
@@ -54,14 +46,14 @@ def main(myblob: func.InputStream):
             labels.append(l.strip())
 
     # Load from blob
-    image = Image.open(io.BytesIO(myblob.read()))    
-    image = image.crop((650,378,650 + 128, 378 + 128))
+    image_buffer = io.BytesIO(myblob.read())
+    image = Image.open(image_buffer)
+
+    # crop and resize
+    image = image.crop((650,378,650 + 128, 378 + 128)).resize((224,224))
 
     # Convert to OpenCV format
     image = convert_to_opencv(image)
-
-    # Resize that square up to 224x224
-    image = cv2.resize(image, (224,224), interpolation = cv2.INTER_LINEAR)
 
     # These names are part of the model and cannot be changed.
     output_layer = 'loss:0'
@@ -80,14 +72,16 @@ def main(myblob: func.InputStream):
     highest_probability_index = np.argmax(predictions)
     logging.info('Classified as: ' + labels[highest_probability_index] + '(' + str(predictions[0][highest_probability_index]) + ')')
 
-    if(labels[highest_probability_index] == "open"):
-        send_linenotify(str(predictions[0][highest_probability_index]),blob_url)
     # Or you can print out all of the results mapping labels to probabilities.
     label_index = 0
     for p in predictions:
         truncated_probablity = np.float64(np.round(p,8))
         logging.info(labels[label_index] + "," + str(truncated_probablity))
         label_index += 1    
+
+    image_buffer.seek(0)
+    if(labels[highest_probability_index] == "close"):
+        send_linenotify(str(predictions[0][highest_probability_index]),image_buffer.getvalue())
 
     logging.info(blob_url)
 
@@ -107,13 +101,18 @@ def get_blob_sas(blob_client,container_name, blob_name):
                                 expiry=datetime.utcnow() + timedelta(hours=1))
     return sas_blob
 
-def send_linenotify(probability,image_url):
+def send_linenotify(probability,image):
     line_token = os.environ.get('LineToken')
-    headers = {"Content-Type": "application/x-www-form-urlencoded","Authorization": "Bearer %s" % line_token};
+    headers = {"Authorization": "Bearer %s" % line_token};
 
     message = "玄関の鍵が開いてるかもしれません！\n(確率 %s)\n" % probability
     data = {
         "message": message.encode("utf-8"),
-        "imageFullsize": image_url
-        }
-    requests.post(URL, headers=headers, data=data);
+    }
+
+    files = {
+        "imageFile": image
+    }
+
+    requests.post(URL, headers=headers, data=data, files=files)
+    
