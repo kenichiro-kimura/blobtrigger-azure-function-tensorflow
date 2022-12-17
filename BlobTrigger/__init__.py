@@ -22,7 +22,7 @@ def main(myblob: func.InputStream):
     labels_filename = "labels.txt"
 
     # Create blobclient to download model
-    blob_service_client = BlobServiceClient.from_connection_string(os.environ.get('ConnectionStrings:StrageConnectionString'))
+    blob_service_client = BlobServiceClient.from_connection_string(os.environ.get('CUSTOMCONNSTR_StrageConnectionString'))
     container_name = myblob.name.split('/')[0]
     blob_client = blob_service_client.get_blob_client(container=container_name, blob=filename)
     
