@@ -4,10 +4,7 @@ import io
 import tensorflow as tf
 from PIL import Image
 import numpy as np
-import ctypes
-import importlib
-from datetime import datetime, timedelta
-from azure.storage.blob import generate_blob_sas,BlobSasPermissions,BlobServiceClient,BlobClient
+from azure.storage.blob import BlobServiceClient,BlobClient
 import os
 import requests
 
@@ -18,25 +15,19 @@ def main(myblob: func.InputStream):
                  f"Name: {myblob.name}\n"
                  f"Blob Size: {myblob.length} bytes")
 
-    blob_service_client = BlobServiceClient.from_connection_string(os.environ.get('ConnectionStrings:StrageConnectionString'))
-    blob_names = myblob.name.split('/')
-    container_name = blob_names.pop(0)
-    blob_name = "/".join(blob_names)
-    blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
-    sas = get_blob_sas(blob_service_client,container_name,blob_name);
-    blob_url = BlobClient.from_blob_url(blob_client.url,credential=sas).url
-
     graph_def = tf.compat.v1.GraphDef()
     labels = []
 
-    # These are set to the default names from exported models, update as needed.
     filename = "model.pb"
     labels_filename = "labels.txt"
 
-    # Import the TF graph
-    pb_blob_client = blob_service_client.get_blob_client(container=container_name, blob=filename)
+    # Create blobclient to download model
+    blob_service_client = BlobServiceClient.from_connection_string(os.environ.get('ConnectionStrings:StrageConnectionString'))
+    container_name = myblob.name.split('/')[0]
+    blob_client = blob_service_client.get_blob_client(container=container_name, blob=filename)
     
-    download_stream = pb_blob_client.download_blob();
+    # Import the TF graph   
+    download_stream = blob_client.download_blob();
     graph_def.ParseFromString(download_stream.readall())
     tf.import_graph_def(graph_def, name='')
 
@@ -45,11 +36,11 @@ def main(myblob: func.InputStream):
         for l in lf:
             labels.append(l.strip())
 
-    # Load from blob
+    # Load a image from blob
     image_buffer = io.BytesIO(myblob.read())
     image = Image.open(image_buffer)
 
-    # crop and resize
+    # Crop and resize
     image = image.crop((650,378,650 + 128, 378 + 128)).resize((224,224))
 
     # Convert to OpenCV format
@@ -83,8 +74,6 @@ def main(myblob: func.InputStream):
     if(labels[highest_probability_index] == "open"):
         send_linenotify(str(predictions[0][highest_probability_index]),image_buffer.getvalue())
 
-    logging.info(blob_url)
-
 def convert_to_opencv(image):
     # RGB -> BGR conversion is performed as well.
     image = image.convert('RGB')
@@ -92,15 +81,6 @@ def convert_to_opencv(image):
     opencv_image = np.array([b,g,r]).transpose()
     return opencv_image
  
-def get_blob_sas(blob_client,container_name, blob_name):
-    sas_blob = generate_blob_sas(account_name=blob_client.account_name, 
-                                container_name=container_name,
-                                blob_name=blob_name,
-                                account_key=blob_client.credential.account_key,
-                                permission=BlobSasPermissions(read=True),
-                                expiry=datetime.utcnow() + timedelta(hours=1))
-    return sas_blob
-
 def send_linenotify(probability,image):
     line_token = os.environ.get('LineToken')
     headers = {"Authorization": "Bearer %s" % line_token};
@@ -114,5 +94,4 @@ def send_linenotify(probability,image):
         "imageFile": image
     }
 
-    requests.post(URL, headers=headers, data=data, files=files)
-    
+    requests.post(URL, headers=headers, data=data, files=files)    
