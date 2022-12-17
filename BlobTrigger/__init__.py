@@ -80,7 +80,7 @@ def main(myblob: func.InputStream):
         label_index += 1    
 
     image_buffer.seek(0)
-    if(labels[highest_probability_index] == "close"):
+    if(labels[highest_probability_index] == "open"):
         send_linenotify(str(predictions[0][highest_probability_index]),image_buffer.getvalue())
 
     logging.info(blob_url)
